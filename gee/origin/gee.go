@@ -1,27 +1,25 @@
 package origin
 
 import (
-	"fmt"
 	"net/http"
 )
 
-type HandlerFunc func(http.ResponseWriter, *http.Request)
+type HandlerFunc func(ctx *Context)
 
 type Engine struct {
 	//路由
-	router map[string]HandlerFunc
+	router *router
 }
 
 // constuctor
 func New() *Engine {
 	return &Engine{
-		router: make(map[string]HandlerFunc),
+		router: newRouter(),
 	}
 }
 
 func (engine *Engine) addRouter(method string, path string, handler HandlerFunc) {
-	key := method + "-" + path
-	engine.router[key] = handler
+	engine.router.addRoute(method, path, handler)
 }
 
 func (engine *Engine) GET(path string, handler HandlerFunc) {
@@ -38,10 +36,6 @@ func (engine *Engine) Run(addr string) error {
 
 // implement http.Handler
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	key := req.Method + "-" + req.URL.Path
-	if handler, ok := engine.router[key]; ok {
-		handler(w, req)
-	} else {
-		fmt.Fprintf(w, "404 NOT FOUND: %s\n", req.URL)
-	}
+	context := NewContext(w, req)
+	engine.router.handle(context)
 }
