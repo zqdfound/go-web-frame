@@ -2,29 +2,36 @@ package main
 
 import (
 	"database/sql"
+	"go-web-frame/orm/dialect"
 	"go-web-frame/orm/log"
 	"go-web-frame/orm/session"
 )
 
 type Engine struct {
-	db *sql.DB
+	db      *sql.DB
+	dialect dialect.Dialect
 }
 
 func NewEngine(driver, source string) (e *Engine, err error) {
 	db, err := sql.Open(driver, source)
 	if err != nil {
 		log.Error(err)
-		return nil, err
+		return
 	}
-	if err := db.Ping(); err != nil {
+	// Send a ping to make sure the database connection is alive.
+	if err = db.Ping(); err != nil {
 		log.Error(err)
-		return nil, err
+		return
 	}
-	e = &Engine{
-		db: db,
+	// make sure the specific dialect exists
+	dial, ok := dialect.GetDialect(driver)
+	if !ok {
+		log.Errorf("dialect %s Not Found", driver)
+		return
 	}
+	e = &Engine{db: db, dialect: dial}
 	log.Info("Connect database success")
-	return e, nil
+	return
 }
 
 func (engine *Engine) Close() {
@@ -35,5 +42,5 @@ func (engine *Engine) Close() {
 }
 
 func (engine *Engine) NewSession() *session.Session {
-	return session.New(engine.db)
+	return session.New(engine.db, engine.dialect)
 }
